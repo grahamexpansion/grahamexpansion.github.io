@@ -692,6 +692,24 @@
     }
     .reveal.is-visible { opacity: 1; transform: translateY(0); }
 
+    /* Stagger children of any element with reveal-stagger.
+       Slower, more considered timing than tech-startup fast staggers. */
+    .reveal-stagger > * {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 1.0s cubic-bezier(0.22, 1, 0.36, 1),
+                  transform 1.0s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: opacity, transform;
+    }
+    .reveal-stagger.is-visible > * {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .reveal-stagger.is-visible > *:nth-child(1) { transition-delay: 0.05s; }
+    .reveal-stagger.is-visible > *:nth-child(2) { transition-delay: 0.22s; }
+    .reveal-stagger.is-visible > *:nth-child(3) { transition-delay: 0.39s; }
+    .reveal-stagger.is-visible > *:nth-child(4) { transition-delay: 0.56s; }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation: none !important;
@@ -805,11 +823,11 @@
       <div class="section-label">Established results</div>
       <div class="stats">
         <div class="stat">
-          <div class="stat-num">1.4<em>B</em>+</div>
+          <div class="stat-num"><span class="stat-value" data-target="1.4" data-decimals="1">0.0</span><em>B</em>+</div>
           <div class="stat-label">Views generated</div>
         </div>
         <div class="stat">
-          <div class="stat-num">3<em>M</em>+</div>
+          <div class="stat-num"><span class="stat-value" data-target="3" data-decimals="0">0</span><em>M</em>+</div>
           <div class="stat-label">Followers built</div>
         </div>
       </div>
@@ -828,7 +846,7 @@
         Most service businesses run on the operator's time. The work scales until they don't. We help founders build the assets that don't &mdash; the brand, the products, and the operations that earn whether or not the founder is in the room.
       </p>
 
-      <div class="pillars">
+      <div class="pillars reveal-stagger">
         <div class="pillar">
           <div class="pillar-num">I.</div>
           <div>
@@ -860,7 +878,7 @@
       <div class="section-label">How we engage</div>
       <h2>By retainer.<br><em>Or by partnership.</em></h2>
 
-      <div class="engage-grid">
+      <div class="engage-grid reveal-stagger">
         <div class="engage-card">
           <div class="engage-card-label">Advisory retainer</div>
           <h3>For established operators.</h3>
@@ -1022,23 +1040,65 @@
       });
     });
 
-    // Scroll reveals
-    if ('IntersectionObserver' in window && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    // ── Count-up animation for stats ──
+    function animateValue(el, target, decimals, duration) {
+      var startTime = performance.now();
+      function update(now) {
+        var progress = Math.min((now - startTime) / duration, 1);
+        // Ease-out cubic — slow finish, feels deliberate
+        var eased = 1 - Math.pow(1 - progress, 3);
+        var current = target * eased;
+        if (progress < 1) {
+          el.textContent = current.toFixed(decimals);
+          requestAnimationFrame(update);
+        } else {
+          // Snap to clean final value
+          el.textContent = decimals > 0 ? target.toFixed(decimals) : Math.round(target);
+        }
+      }
+      requestAnimationFrame(update);
+    }
+
+    function triggerCountUp(rootEl) {
+      var values = rootEl.querySelectorAll('.stat-value');
+      values.forEach(function (el) {
+        if (el.dataset.counted) return;
+        el.dataset.counted = '1';
+        var target = parseFloat(el.dataset.target);
+        var decimals = parseInt(el.dataset.decimals || '0', 10);
+        animateValue(el, target, decimals, 1800);
+      });
+    }
+
+    // ── Scroll reveals + count-up ──
+    var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if ('IntersectionObserver' in window && !prefersReduced) {
       var observer = new IntersectionObserver(function (entries) {
         entries.forEach(function (entry) {
           if (entry.isIntersecting) {
             entry.target.classList.add('is-visible');
+            // If this section contains stat values, trigger count-up
+            if (entry.target.querySelector('.stat-value')) {
+              triggerCountUp(entry.target);
+            }
             observer.unobserve(entry.target);
           }
         });
-      }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+      }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
 
-      document.querySelectorAll('.reveal').forEach(function (el) {
+      document.querySelectorAll('.reveal, .reveal-stagger').forEach(function (el) {
         observer.observe(el);
       });
     } else {
-      document.querySelectorAll('.reveal').forEach(function (el) {
+      // Reduced motion or old browser — show everything immediately, set final values
+      document.querySelectorAll('.reveal, .reveal-stagger').forEach(function (el) {
         el.classList.add('is-visible');
+      });
+      document.querySelectorAll('.stat-value').forEach(function (el) {
+        var target = parseFloat(el.dataset.target);
+        var decimals = parseInt(el.dataset.decimals || '0', 10);
+        el.textContent = decimals > 0 ? target.toFixed(decimals) : Math.round(target);
       });
     }
   })();
