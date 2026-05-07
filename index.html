@@ -948,22 +948,12 @@
 <!-- ───────────────────────────────────────────────────────────────
      INQUIRY FORM HANDLER
      ─────────────────────────────────────────────────────────────
-     Currently a placeholder — submissions show success UI but
-     do NOT send anywhere yet.
+     LIVE — submissions route to matt@grahamexpansion.com via
+     Formspree (form ID xbdwajbr).
 
-     RECOMMENDED WIRING (in order of effort):
-
-     1. mailto: fallback (zero setup, clunky):
-        Change form action to mailto:hello@grahamexpansion.com
-
-     2. Formspree (5 minutes, free tier):
-        Sign up at formspree.io, get a form endpoint URL.
-        Replace the placeholder fetch() in script below.
-
-     3. Klaviyo (consistent with your other properties):
-        Use the same client API pattern as the apparel waitlist.
-        Inquiries land in a Klaviyo list, route to a flow that
-        sends a confirmation + notifies you internally.
+     Free tier handles 50 submissions/month.
+     If volume grows past that, upgrade Formspree or migrate to
+     a Klaviyo flow that emails you internally on submit.
      ─────────────────────────────────────────────────────────── -->
 <script>
   (function () {
@@ -999,19 +989,37 @@
       btn.disabled = true;
       btn.textContent = 'Sending...';
 
-      // ─── TODO: Replace with real submission endpoint ───
-      console.log('[Graham Expansion inquiry — placeholder, not sent]', {
-        name: name, email: email,
-        business: form.business.value.trim(),
-        message: message
-      });
-
-      setTimeout(function () {
+      // Submit to Formspree → routes to matt@grahamexpansion.com
+      fetch('https://formspree.io/f/xbdwajbr', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: name,
+          email: email,
+          business: form.business.value.trim(),
+          message: message,
+          _subject: 'New Graham Expansion Co. inquiry — ' + name
+        })
+      })
+      .then(function (res) {
+        if (!res.ok) {
+          return res.json().then(function (data) {
+            throw new Error(data.error || 'Submission failed');
+          });
+        }
         form.style.display = 'none';
         success.classList.add('show');
         success.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 500);
-      // ────────────────────────────────────────────────────
+      })
+      .catch(function (err) {
+        console.error('Inquiry submission error:', err);
+        btn.disabled = false;
+        btn.textContent = 'Send inquiry';
+        showError('Something went wrong. Please try again, or email matt@grahamexpansion.com directly.');
+      });
     });
 
     // Scroll reveals
